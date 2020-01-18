@@ -7,6 +7,8 @@ import {
   Text,
   TextInput,
   TouchableOpacity,
+  Keyboard,
+  ActivityIndicator,
 } from 'react-native';
 import {
   requestPermissionsAsync,
@@ -19,10 +21,13 @@ import api from '../services/api';
 function Main({ navigation }) {
   const [currentRegion, setCurrentRegion] = useState(null);
   const [devs, setDevs] = useState([]);
+  const [loading, setLoanding] = useState(false);
+  const [searchDev, setSearchDev] = useState(false);
   const [techs, setTechs] = useState('');
 
   useEffect(() => {
     async function loadInitialPosition() {
+      setLoanding(true);
       const { granted } = await requestPermissionsAsync();
 
       if (granted) {
@@ -39,6 +44,7 @@ function Main({ navigation }) {
           longitudeDelta: 0.03,
         });
       }
+      setLoanding(false);
     }
 
     loadInitialPosition();
@@ -46,7 +52,7 @@ function Main({ navigation }) {
 
   async function loadDevs() {
     const { latitude, longitude } = currentRegion;
-
+    setSearchDev(true);
     const response = await api.get('/search', {
       params: {
         latitude,
@@ -56,72 +62,88 @@ function Main({ navigation }) {
     });
 
     setDevs(response.data.devs);
-    console.log(devs);
+    Keyboard.dismiss();
+    setSearchDev(false);
   }
 
   function handleRegionChanged(region) {
     setCurrentRegion(region);
   }
 
-  if (!currentRegion) {
-    return null;
-  }
+  // if (!currentRegion) {
+  //   setLoanding(true);
+  //   return null;
+  // }
 
   return (
     <>
-      <MapView
-        onRegionChangeComplete={handleRegionChanged}
-        initialRegion={currentRegion}
-        style={styles.map}
-      >
-        {devs.map(dev => (
-          <Marker
-            key={dev._id}
-            coordinate={{
-              longitude: dev.location.coordinates[0],
-              latitude: dev.location.coordinates[1],
-            }}
+      {loading ? (
+        <View style={styles.container}>
+          <Text style={styles.loading}>Localizando...</Text>
+          <Text style={styles.loading}></Text>
+          <ActivityIndicator color="#FFF" size="large" />
+        </View>
+      ) : (
+        <>
+          <MapView
+            onRegionChangeComplete={handleRegionChanged}
+            initialRegion={currentRegion}
+            style={styles.map}
           >
-            <Image
-              style={styles.avatar}
-              source={{
-                uri: dev.avatar_url,
-              }}
+            {devs.map(dev => (
+              <Marker
+                key={dev._id}
+                coordinate={{
+                  longitude: dev.location.coordinates[0],
+                  latitude: dev.location.coordinates[1],
+                }}
+              >
+                <Image
+                  style={styles.avatar}
+                  source={{
+                    uri: dev.avatar_url,
+                  }}
+                />
+                <Callout
+                  onPress={() => {
+                    // navegação
+                    navigation.navigate('Profile', {
+                      github_username: dev.github_username,
+                    });
+                  }}
+                >
+                  <View style={styles.callout}>
+                    <Text style={styles.devName}>{dev.name}</Text>
+                    <Text style={styles.devBio}>{dev.bio}</Text>
+                    <Text style={styles.devTechs}>{dev.techs.join(', ')}</Text>
+                  </View>
+                </Callout>
+              </Marker>
+            ))}
+          </MapView>
+          <View style={styles.searchForm}>
+            <TextInput
+              style={styles.searchInput}
+              placeholder="Buscar devs por techs..."
+              placeholderTextColor="#999"
+              autoCapitalize="none"
+              autoCorrect={false}
+              value={techs}
+              //onChangeText={text => setTechs(text)}
+              onChangeText={setTechs}
+              returnKeyType="send"
+              onSubmitEditing={loadDevs}
             />
-            <Callout
-              onPress={() => {
-                // navegação
-                navigation.navigate('Profile', {
-                  github_username: dev.github_username,
-                });
-              }}
-            >
-              <View style={styles.callout}>
-                <Text style={styles.devName}>{dev.name}</Text>
-                <Text style={styles.devBio}>{dev.bio}</Text>
-                <Text style={styles.devTechs}>{dev.techs.join(', ')}</Text>
-              </View>
-            </Callout>
-          </Marker>
-        ))}
-      </MapView>
-      <View style={styles.searchForm}>
-        <TextInput
-          style={styles.searchInput}
-          placeholder="Buscar devs por techs..."
-          placeholderTextColor="#999"
-          autoCapitalize="none"
-          autoCorrect={false}
-          value={techs}
-          //onChangeText={text => setTechs(text)}
-          onChangeText={setTechs}
-          returnKeyType="send"
-          onSubmitEditing={loadDevs}
-        />
-        <TouchableOpacity onPress={loadDevs} style={styles.loadButton}>
-          <MaterialIcons name="my-location" size={20} color="#FFF" />
-        </TouchableOpacity>
-      </View>
+            <TouchableOpacity onPress={loadDevs} style={styles.loadButton}>
+              {searchDev ? (
+                <ActivityIndicator color="#FFF" size="small" />
+              ) : (
+                <MaterialIcons name="my-location" size={20} color="#FFF" />
+              )}
+            </TouchableOpacity>
+          </View>
+        </>
+      )}
     </>
   );
 }
@@ -134,7 +156,7 @@ const styles = StyleSheet.create({
   avatar: {
     width: 54,
     height: 54,
-    borderRadius: 4,
+    borderRadius: 12,
     borderWidth: 4,
     borderColor: '#FFF',
   },
@@ -192,6 +214,19 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     marginLeft: 15,
+  },
+
+  container: {
+    backgroundColor: '#8E4DFF',
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+
+  loading: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: '#FFF',
   },
 });
 
