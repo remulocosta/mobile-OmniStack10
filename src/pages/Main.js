@@ -115,6 +115,8 @@ function Main({ navigation }) {
           value={techs}
           //onChangeText={text => setTechs(text)}
           onChangeText={setTechs}
+          returnKeyType="send"
+          onSubmitEditing={loadDevs}
         />
         <TouchableOpacity onPress={loadDevs} style={styles.loadButton}>
           <MaterialIcons name="my-location" size={20} color="#FFF" />
